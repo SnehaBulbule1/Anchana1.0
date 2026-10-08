@@ -1,8 +1,14 @@
-
+{
   "version": 2,
   "builds": [
-    { "src": "backend.py", "use": "@vercel/python" },
-    { "src": "frontend.py", "use": "@vercel/python" }
+    {
+      "src": "backend.py",
+      "use": "@vercel/python"
+    },
+    {
+      "src": "frontend.py",
+      "use": "vercel-streamlit-builder"
+    }
   ],
   "routes": [
     { "src": "/analyze-file", "dest": "backend.py" },
