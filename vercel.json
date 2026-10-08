@@ -7,7 +7,7 @@
     },
     {
       "src": "frontend.py",
-      "use": "vercel-streamlit-builder"
+      "use": "@vercel/python"
     }
   ],
   "routes": [
