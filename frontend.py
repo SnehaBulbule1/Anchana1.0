@@ -11,7 +11,7 @@ st.title("📊 Automated Machine Learning Platform Workspace")
 st.write("Upload clean data structures, configure variable constraints, and evaluate Scikit-Learn models in real time.")
 
 # Pointing explicitly to the open server port 8001
-BACKEND_URL = "https://onrender.com"
+BACKEND_URL = "http://127.0.0.1:8001"
 
 uploaded_file = st.sidebar.file_uploader("Upload Target Workspace File (.csv, .xlsx)", type=["csv", "xlsx"])
 
