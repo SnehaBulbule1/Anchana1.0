@@ -1,123 +1,139 @@
-import streamlit as st
-import pandas as pd
-import httpx
-import json
-import matplotlib.pyplot as plt
-import seaborn as sns
+from fastapi import FastAPI
+from fastapi.responses import HTMLResponse
 
-st.set_page_config(page_title="Auto-ML Workspace UI", layout="wide")
+app = FastAPI(title="ML Workspace UI Engine")
 
-st.title("📊 Automated Machine Learning Platform Workspace")
-st.write("Upload clean data structures, configure variable constraints, and evaluate Scikit-Learn models in real time.")
-
-# Pointing explicitly to the open server port 8001
-BACKEND_URL = "http://127.0.0.1:8001"
-
-uploaded_file = st.sidebar.file_uploader("Upload Target Workspace File (.csv, .xlsx)", type=["csv", "xlsx"])
-
-if uploaded_file is not None:
-    file_bytes = uploaded_file.getvalue()
-    files = {"file": (uploaded_file.name, file_bytes, uploaded_file.type)}
-    
-    try:
-        with httpx.Client() as client:
-            meta_res = client.post(f"{BACKEND_URL}/analyze-file", files=files)
+@app.get("/", response_class=HTMLResponse)
+async def render_dashboard():
+    return """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>📊 Automated Machine Learning Platform Workspace</title>
+        <script src="https://jsdelivr.net"></script>
+        <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #f8f9fa; margin: 0; padding: 20px; color: #333; }
+            .container { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 300px 1fr; gap: 20px; }
+            .sidebar { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+            .main-content { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+            h1, h3 { margin-top: 0; color: #111; }
+            .btn { background: #ff4b4b; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; width: 100%; font-weight: bold; }
+            .btn:hover { background: #e03e3e; }
+            .form-group { margin-bottom: 15px; }
+            label { display: block; margin-bottom: 5px; font-weight: 500; font-size: 14px; }
+            select, input[type="file"] { width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ddd; box-sizing: border-box; }
+            .metric-card { background: #e3f2fd; padding: 15px; border-radius: 6px; margin-bottom: 15px; border-left: 5px solid #2196f3; }
+            .matrix-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+            .matrix-table th, .matrix-table td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+            .matrix-table th { background-color: #f1f1f1; }
+        </style>
+    </head>
+    <body>
+        <h1>📊 Automated Machine Learning Platform Workspace</h1>
+        <p>Upload clean data structures, configure variable constraints, and evaluate Scikit-Learn models in real time.</p>
+        
+        <div class="container">
+            <div class="sidebar">
+                <h3>Workspace Settings</h3>
+                <div class="form-group">
+                    <label>Upload Dataset File (.csv, .xlsx)</label>
+                    <input type="file" id="datasetFile" accept=".csv, .xlsx" onchange="analyzeDataset()">
+                </div>
+                <div id="profileMetrics" style="display:none;"></div>
+            </div>
             
-        if meta_res.status_code == 200:
-            analysis = meta_res.json()
-            columns = analysis["columns"]
-            
-            st.sidebar.markdown("### 🔍 Dataset Profile Metrics")
-            st.sidebar.markdown(f"**Shape Matrix:** `{analysis['shape']}` rows × `{analysis['shape']}` columns")
-            st.sidebar.markdown(f"**Total Elements Size:** `{analysis['size']}`")
-            st.sidebar.markdown(f"**Numerical Parameters:** `{analysis['numerical_features']}`")
-            st.sidebar.markdown(f"**Categorical Parameters:** `{analysis['categorical_features']}`")
-            st.sidebar.markdown(f"**Missing Value Columns:** `{analysis['null_features']}`")
-            st.sidebar.markdown(f"**Identified Duplicate Rows:** `{analysis['duplicate_rows']}`")
-            
-            track_selection = st.sidebar.selectbox(
-                "Select Machine Learning Track",
-                options=["Regression (R)", "Classification (C)", "Clustering Unsupervised (G)"]
-            )
-            track_code = track_selection[-2]
-            
-            target_variable = ""
-            if track_code in ['R', 'C']:
-                target_variable = st.sidebar.selectbox("Choose Target Predictor Component (y)", options=columns)
+            <div class="main-content">
+                <h3>⚡ Live Computational Results</h3>
+                <div id="runtimeKPI"></div>
+                <div id="resultsTableContainer"></div>
+                <div style="max-width: 600px; margin-top: 20px;">
+                    <canvas id="speedChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            let cachedFile = null;
+
+            async function analyzeDataset() {
+                const fileInput = document.getElementById('datasetFile');
+                if (!fileInput.files.length) return;
+                cachedFile = fileInput.files[0];
+
+                const formData = new FormData();
+                formData.append('file', cachedFile);
+
+                try {
+                    const res = await fetch('/analyze-file', { method: 'POST', body: formData });
+                    if (res.status === 200) {
+                        const data = await res.json();
+                        let metricsHtml = `
+                            <div class="metric-card">
+                                <strong>🔍 Dataset Profile Metrics</strong><br>
+                                <p>Rows × Columns: ${data.shape[0]} × ${data.shape[1]}</p>
+                                <p>Numerical features: ${data.numerical_features}</p>
+                                <p>Categorical features: ${data.categorical_features}</p>
+                                <p>Duplicates: ${data.duplicate_rows}</p>
+                            </div>
+                            <div class="form-group">
+                                <label>Select Machine Learning Track</label>
+                                <select id="trackCode">
+                                    <option value="R">Regression (R)</option>
+                                    <option value="C">Classification (C)</option>
+                                    <option value="G">Clustering Unsupervised (G)</option>
+                                </select>
+                            </div>
+                            <button class="btn" onclick="executePipeline()">⚙️ Execute Pipeline</button>
+                        `;
+                        document.getElementById('profileMetrics').innerHTML = metricsHtml;
+                        document.getElementById('profileMetrics').style.display = 'block';
+                    }
+                } catch (err) { alert('Communication error with pipeline backend node.'); }
+            }
+
+            async function executePipeline() {
+                if (!cachedFile) return;
+                const track = document.getElementById('trackCode').value;
                 
-            drop_selections = st.sidebar.multiselect(
-                "Choose Optional Attributes to Omit",
-                options=[col for col in columns if col != target_variable]
-            )
-            
-            if st.sidebar.button("⚙️ Execute Model Pipeline Computations", type="primary"):
-                st.subheader(f"⚡ Live Computational Results: {track_selection}")
-                
-                payload_data = {
-                    "problem_type": track_code,
-                    "target_column": target_variable,
-                    "drop_columns": json.dumps(drop_selections)
-                }
-                
-                active_file = {"file": (uploaded_file.name, file_bytes, uploaded_file.type)}
-                
-                with st.spinner("Training processing workflows across isolated backend instances..."):
-                    with httpx.Client(timeout=120.0) as client:
-                        eval_res = client.post(f"{BACKEND_URL}/evaluate", data=payload_data, files=active_file)
+                const formData = new FormData();
+                formData.append('file', cachedFile);
+                formData.append('problem_type', track);
+                formData.append('target_column', ''); 
+                formData.append('drop_columns', '[]');
+
+                try {
+                    const res = await fetch('/evaluate', { method: 'POST', body: formData });
+                    if (res.status === 200) {
+                        const data = await res.json();
+                        document.getElementById('runtimeKPI').innerHTML = `<div class="metric-card">⌛ Overall Execution Runtime: <strong>${data.total_pipeline_time_sec} Sec</strong></div>`;
                         
-                if eval_res.status_code == 200:
-                    response_json = eval_res.json()
-                    raw_data = response_json["results"]
-                    total_program_time = response_json["total_pipeline_time_sec"]
-                    
-                    metric_matrix_df = pd.DataFrame(raw_data)
-                    
-                    st.success("Execution completed successfully!")
-                    
-                    # 💡 Render the Single Overall Execution Time KPI block scorecard
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        st.metric(label="⌛ Overall Execution Runtime", value=f"{total_program_time} Sec")
-                    
-                    st.write("#### 📊 Evaluation Score & Runtime Matrix")
-                    st.dataframe(metric_matrix_df, use_container_width=True)
-                    
-                    # Filter clean dataset ONCE here right before graph plotting blocks
-                    chart_df = metric_matrix_df.drop(index="Execution_Time_Sec", errors="ignore")
-                    
-                    st.write("#### 📈 Performance Distribution Visualisation")
-                    fig, ax = plt.subplots(figsize=(10, 4))
-                    
-                    if track_code in ['R', 'C']:
-                        melted_df = chart_df.reset_index().melt(id_vars='index')
-                        melted_df.columns = ['Evaluation Split', 'Model Framework', 'Accuracy Score Metric']
-                        melted_df['Accuracy Score Metric'] = melted_df['Accuracy Score Metric'].astype(float)
+                        // Render standard runtime tables and performance chart indices
+                        let tableHtml = '<table class="matrix-table"><thead><tr><th>Model</th><th>Train Score</th><th>Test Score</th><th>Runtime (Sec)</th></tr></thead><tbody>';
+                        const labels = [];
+                        const runtimes = [];
                         
-                        sns.barplot(data=melted_df, x='Model Framework', y='Accuracy Score Metric', hue='Evaluation Split', ax=ax, palette="Blues_d")
-                        ax.set_ylim(0, 1.05)
-                        ax.set_title("Cross Model Performance Splits Overview (Excluding Runtimes)")
-                    else:
-                        metric_matrix_df_clean = chart_df.reset_index()
-                        melted_df = metric_matrix_df_clean.melt(id_vars='index')
-                        melted_df.columns = ['Validation Metric', 'Model Framework', 'Scoring Index Value']
-                        melted_df['Scoring Index Value'] = melted_df['Scoring Index Value'].astype(float)
-                        
-                        sns.barplot(data=melted_df, x='Validation Metric', y='Scoring Index Value', hue='Model Framework', ax=ax, palette="viridis")
-                        ax.set_title("Unsupervised Validation Clusters Variance Profile Comparison")
-                        
-                    plt.tight_layout()
-                    st.pyplot(fig)
-                    
-                    # Single independent speed bar-chart block section
-                    st.write("#### ⏱️ Model Speed Analysis")
-                    times_df = metric_matrix_df.loc[["Execution_Time_Sec"]].astype(float)
-                    st.bar_chart(times_df.T)
-                    
-                else:
-                    st.error(f"Backend Node Processing Error: {eval_res.text}")
-        else:
-            st.error("Failed to parse communication protocols from the target backend node engine environment.")
-    except Exception as network_err:
-        st.error(f"Failed to communicate with API server instance: {str(network_err)}")
-else:
-    st.info("💡 Drop an Excel or CSV file into the workspace initialization panel configuration frame on the left to begin.")
+                        for (const [model, metrics] of Object.entries(data.results)) {
+                            tableHtml += `<tr><td>${model}</td><td>${metrics.Acc_Train || metrics.Silhouette || 'N/A'}</td><td>${metrics.Acc_Test_R2 || metrics.Acc_Test || 'N/A'}</td><td>${metrics.Execution_Time_Sec}</td></tr>`;
+                            labels.push(model);
+                            runtimes.push(parseFloat(metrics.Execution_Time_Sec));
+                        }
+                        tableHtml += '</tbody></table>';
+                        document.getElementById('resultsTableContainer').innerHTML = tableHtml;
+
+                        // Render Speed Chart
+                        new Chart(document.getElementById('speedChart'), {
+                            type: 'bar',
+                            data: {
+                                labels: labels,
+                                datasets: [{ label: 'Model Execution Time (Seconds)', data: runtimes, backgroundColor: '#2196f3' }]
+                            }
+                        });
+                    }
+                } catch (err) { alert('Error processing workspace computation logs.'); }
+            }
+        </script>
+    </body>
+    </html>
+    """

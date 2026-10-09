@@ -12,7 +12,7 @@
   ]
 }*/
 
-{
+/*{
   "version": 2,
   "builds": [
     {
@@ -26,5 +26,18 @@
   "routes": [
     { "src": "/analyze-file", "dest": "backend.py" },
     { "src": "/evaluate", "dest": "backend.py" }
+  ]
+}*/
+
+{
+  "version": 2,
+  "builds": [
+    { "src": "backend.py", "use": "@vercel/python" },
+    { "src": "frontend.py", "use": "@vercel/python" }
+  ],
+  "routes": [
+    { "src": "/analyze-file", "dest": "backend.py" },
+    { "src": "/evaluate", "dest": "backend.py" },
+    { "src": "/(.*)", "dest": "frontend.py" }
   ]
 }
