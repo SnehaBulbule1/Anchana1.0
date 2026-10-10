@@ -15,7 +15,7 @@ from sklearn.preprocessing import StandardScaler, OrdinalEncoder
 from sklearn.model_selection import train_test_split
 from sklearn.exceptions import DataConversionWarning
 
-# Model Frameworks 
+# Model Frameworks
 from sklearn.linear_model import LinearRegression, LogisticRegression, Ridge
 from sklearn.neighbors import KNeighborsRegressor, KNeighborsClassifier
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier, GradientBoostingRegressor, GradientBoostingClassifier
@@ -23,10 +23,26 @@ from sklearn.svm import SVR, SVC
 from sklearn.cluster import KMeans, AgglomerativeClustering
 from sklearn.metrics import silhouette_score, davies_bouldin_score, calinski_harabasz_score
 
+# =====================================================================
+# ➕ MODIFICATION 1: IMPORT SKLEARN MULTI-LAYER PERCEPTRON (ANN)
+# =====================================================================
+from sklearn.neural_network import MLPRegressor, MLPClassifier
+
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 warnings.filterwarnings(action='ignore', category=DataConversionWarning)
 
+from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI(title="ML Computational Engine API", version="1.0.0")
+
+# ➕ Required CORS settings for full-fledge cross-platform calls
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], 
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # =====================================================================
 # 🕒 CENTRALIZED TIMING WRAPPER FUNCTION (RUNS ONCE)
@@ -43,17 +59,17 @@ def data_preprocessing(b: pd.DataFrame) -> ColumnTransformer:
     """Automated data cleaning and scaling pipeline factory."""
     all_numerical_features = list(b.select_dtypes(include=['int64', 'float64']).columns.values)
     all_categorical_features = list(b.select_dtypes(include=['object', 'category', 'bool']).columns.values)
-   
+    
     num_transform = make_pipeline(SimpleImputer(strategy='median'), StandardScaler())
     cat_transform = make_pipeline(SimpleImputer(strategy='constant', fill_value='missing'), OrdinalEncoder())
-         
+    
     preprocessor = ColumnTransformer(
         transformers=[
             ('num_tran', num_transform, all_numerical_features),
             ('cat_tran', cat_transform, all_categorical_features),
-        ], 
+        ],
         remainder='passthrough'
-    )      
+    )
     return preprocessor
 
 @app.post("/analyze-file")
@@ -105,14 +121,25 @@ async def evaluate_pipeline(
             y = df[target_column]
             
             X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20, random_state=42)
+            
             y_train_flat = y_train.values.ravel() if isinstance(y_train, (pd.DataFrame, pd.Series)) else y_train
             
             preprocessor = data_preprocessing(X)
             results = {}
-
+            
             if problem_type == 'R':
-                models = [LinearRegression(), KNeighborsRegressor(), RandomForestRegressor(random_state=42), GradientBoostingRegressor(random_state=42), Ridge()]
-                names = ['Lin', 'KNN', 'RAF', 'GBR', 'Rid']
+                # =====================================================================
+                # ➕ MODIFICATION 2: ADDED MLPRegressor TO REGRESSION TRACK
+                # =====================================================================
+                models = [
+                    LinearRegression(), 
+                    KNeighborsRegressor(), 
+                    RandomForestRegressor(random_state=42), 
+                    GradientBoostingRegressor(random_state=42), 
+                    Ridge(),
+                    MLPRegressor(hidden_layer_sizes=(64, 32), max_iter=500, random_state=42)
+                ]
+                names = ['Lin', 'KNN', 'RAF', 'GBR', 'Rid', 'ANN']
                 
                 for model, name in zip(models, names):
                     pipeline = Pipeline(steps=[('preprocessor', preprocessor), ('model', model)])
@@ -124,8 +151,18 @@ async def evaluate_pipeline(
                     }
                     
             elif problem_type == 'C':
-                models = [LogisticRegression(max_iter=1000, random_state=42), KNeighborsClassifier(), RandomForestClassifier(random_state=42), GradientBoostingClassifier(random_state=42), SVC(random_state=42)]
-                names = ['LogReg', 'KNN', 'RFC', 'GBC', 'SVC']
+                # =====================================================================
+                # ➕ MODIFICATION 3: ADDED MLPClassifier TO CLASSIFICATION TRACK
+                # =====================================================================
+                models = [
+                    LogisticRegression(max_iter=1000, random_state=42), 
+                    KNeighborsClassifier(), 
+                    RandomForestClassifier(random_state=42), 
+                    GradientBoostingClassifier(random_state=42), 
+                    SVC(random_state=42),
+                    MLPClassifier(hidden_layer_sizes=(64, 32), max_iter=500, random_state=42)
+                ]
+                names = ['LogReg', 'KNN', 'RFC', 'GBC', 'SVC', 'ANN']
                 
                 for model, name in zip(models, names):
                     pipeline = Pipeline(steps=[('preprocessor', preprocessor), ('model', model)])
@@ -139,22 +176,20 @@ async def evaluate_pipeline(
             # ⏱️ STOP GLOBAL TIMER & CALCULATE TOTAL PROGRAM OVERALL TIME
             global_end_time = time.time()
             total_elapsed = f"{(global_end_time - global_start_time):.4f}"
-            
             return JSONResponse(content={
-                "results": results, 
+                "results": results,
                 "total_pipeline_time_sec": total_elapsed
             })
-
+            
         # Unsupervised Clustering Track
         elif problem_type == 'G':
             preprocessor = data_preprocessing(df)
             X_transformed = preprocessor.fit_transform(df)
-            
             k = 3
             models = [KMeans(n_clusters=k, random_state=42, n_init='auto'), AgglomerativeClustering(n_clusters=k)]
             names = ['KMeans', 'Hierarchical_Agglomerative']
-            
             formatted_results = {}
+            
             for model, name in zip(models, names):
                 labels, runtime = run_with_timer(model.fit_predict, X_transformed)
                 formatted_results[name] = {
@@ -163,22 +198,36 @@ async def evaluate_pipeline(
                     "Calinski_Harabasz": f"{calinski_harabasz_score(X_transformed, labels):.4f}",
                     "Execution_Time_Sec": runtime
                 }
-                
+            
             # ⏱️ STOP GLOBAL TIMER FOR CLUSTERING
             global_end_time = time.time()
             total_elapsed = f"{(global_end_time - global_start_time):.4f}"
-            
             return JSONResponse(content={
-                "results": formatted_results, 
+                "results": formatted_results,
                 "total_pipeline_time_sec": total_elapsed
             })
-            
         else:
             raise HTTPException(status_code=400, detail="Invalid operational track chosen.")
-
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Computational Failure: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=8001)
+    uvicorn.run(app, host="127.0.0.1", port=8003)
+
+    # ===================================================================== #
+# 🔐 AUTHENTICATION ROUTE LAYER FOR SENIOR SIGNUP
+# ===================================================================== #
+@app.post("/api/register")
+async def register_user(payload: dict):
+    username = payload.get("username")
+    password = payload.get("password")
+    
+    if not username or not password:
+        raise HTTPException(status_code=400, detail="Username and password criteria are required.")
+    
+    # Simulating connection save to your MongoDB collection instances
+    # Replace this block with your active mongo client insert logic if needed:
+    # db.users.insert_one({"username": username, "password": password})
+    
+    return {"status": "success", "message": f"Account profile for {username} initialized successfully!"}
