@@ -74,7 +74,6 @@ async def render_dashboard():
                 if (!fileInput.files.length) return;
 
                 const formData = new FormData();
-                // ⭐ FIXED: Grabbed the single file index [0] so it parses correctly
                 formData.append('file', fileInput.files[0]);
 
                 try {
@@ -88,12 +87,12 @@ async def render_dashboard():
                         let controlsHtml = `
                             <div class="metric-card">
                                 <strong>🔍 Dataset Profile Metrics</strong><br>
-                                • Matrix Shape: ${data.shape[0]} rows × ${data.shape[1]} columns<br>
-                                • Total Elements: ${data.size}<br>
-                                • Numerical Parameters: ${data.numerical_features}<br>
-                                • Categorical Parameters: ${data.categorical_features}<br>
-                                • Missing Value Columns: ${data.null_features}<br>
-                                • Duplicate Rows: ${data.duplicate_rows}
+                                • Matrix Shape: \${data.shape[0]} rows × \text{\${data.shape[1]}} columns<br>
+                                • Total Elements: \${data.size}<br>
+                                • Numerical Parameters: \text{\${data.numerical_features}}<br>
+                                • Categorical Parameters: \text{\${data.categorical_features}}<br>
+                                • Missing Value Columns: \text{\${data.null_features}}<br>
+                                • Duplicate Rows: \text{\${data.duplicate_rows}}
                             </div>
                             
                             <div class="form-group">
@@ -107,12 +106,12 @@ async def render_dashboard():
                             
                             <div class="form-group" id="targetContainer">
                                 <label>Choose Target Predictor Component (y)</label>
-                                <select id="targetVariable">${targetOptions}</select>
+                                <select id="targetVariable">\${targetOptions}</select>
                             </div>
                             
                             <div class="form-group">
                                 <label>Choose Optional Attributes to Omit (Hold Ctrl to select multiple)</label>
-                                <select id="dropSelections" multiple>${targetOptions}</select>
+                                <select id="dropSelections" multiple>\${targetOptions}</select>
                             </div>
                             
                             <button class="btn" onclick="executePipeline()">⚙️ Execute Model Pipeline Computations</button>
@@ -147,7 +146,6 @@ async def render_dashboard():
                 }
 
                 const formData = new FormData();
-                // ⭐ FIXED: Grabbed the single file index [0] here as well
                 formData.append('file', fileInput.files[0]);
                 formData.append('problem_type', track);
                 formData.append('target_column', target);
@@ -160,56 +158,87 @@ async def render_dashboard():
                         
                         document.getElementById('runtimeKPI').innerHTML = `
                             <div class="metric-card" style="background:#e8f5e9; border-left-color:#4caf50;">
-                                ⌛ <strong>Overall Execution Runtime:</strong> ${data.total_pipeline_time_sec} Sec
+                                ⌛ <strong>Overall Execution Runtime:</strong> \${data.total_pipeline_time_sec} Sec
                             </div>
                         `;
                         
                         let isClustering = track === 'G';
                         let scoreHeader = isClustering ? '<th>Silhouette</th><th>Davies Bouldin</th><th>Calinski Harabasz</th>' : '<th>Acc Train</th><th>Acc Test</th>';
                         
-                        let tableHtml = `<table class="matrix-table"><thead><tr><th>Model Framework</th>${scoreHeader}<th>Execution Time (Sec)</th></tr></thead><tbody>`;
+                        let tableHtml = `<table class="matrix-table"><thead><tr><th>Model Framework</th>\${scoreHeader}<th>Execution Time (Sec)</th></tr></thead><tbody>`;
                         
                         const modelNames = [];
                         const scoreMetrics1 = [];
                         const scoreMetrics2 = [];
-const speedRuntimes = [];
-for (const [model, metrics] of Object.entries(data.results)) {
-modelNames.push(model);
-speedRuntimes.push(parseFloat(metrics.Execution_Time_Sec));
-if (isClustering) {
-tableHtml += <tr><td><strong>${model}</strong></td><td>${metrics.Silhouette}</td><td>${metrics.Davies_Bouldin}</td><td>${metrics.Calinski_Harabasz}</td><td>${metrics.Execution_Time_Sec}</td></tr>;
-scoreMetrics1.push(parseFloat(metrics.Silhouette));
-} else {
-let testScore = metrics.Acc_Test_R2 || metrics.Acc_Test;
-tableHtml += <tr><td><strong>${model}</strong></td><td>${metrics.Acc_Train}</td><td>${testScore}</td><td>${metrics.Execution_Time_Sec}</td></tr>;
-scoreMetrics1.push(parseFloat(metrics.Acc_Train));
-scoreMetrics2.push(parseFloat(testScore));
-}
-}
-tableHtml += '';
-document.getElementById('resultsTableContainer').innerHTML = tableHtml;
-document.getElementById('visualizationsContainer').style.display = 'grid';
-// Render Performance Graph
-let datasetArray = isClustering ?
-[{ label: 'Silhouette Index Metric', data: scoreMetrics1, backgroundColor: '#4caf50' }] :
-[{ label: 'Train Score Split', data: scoreMetrics1, backgroundColor: '#2196f3' }, { label: 'Test Score Split', data: scoreMetrics2, backgroundColor: '#bbdefb' }];
-new Chart(document.getElementById('performanceChart'), {
-type: 'bar',
-data: { labels: modelNames, datasets: datasetArray },
-options: { responsive: true, scales: { y: { min: 0, max: isClustering ? undefined : 1.05 } } }
-});
-// Render Speed Graph
-new Chart(document.getElementById('speedChart'), {
-type: 'bar',
-data: {
-labels: modelNames,
-datasets: [{ label: 'Model Runtime Duration Speed (Seconds)', data: speedRuntimes, backgroundColor: '#ff9800' }]
-},
-options: { responsive: true }
-});
-}
-} catch (err) { alert('Processing computational pipeline failure.'); }
-}
+                        const speedRuntimes = [];
+
+                        for (const [model, metrics] of Object.entries(data.results)) {
+
+                        modelNames.push(model);
+
+                        speedRuntimes.push(parseFloat(metrics.Execution_Time_Sec));
+
+                        if (isClustering) {
+
+                        tableHtml += <tr><td><strong>\${model}</strong></td><td>\${metrics.Silhouette}</td><td>\${metrics.Davies_Bouldin}</td><td>\${metrics.Calinski_Harabasz}</td><td>\${metrics.Execution_Time_Sec}</td></tr>;
+
+                        scoreMetrics1.push(parseFloat(metrics.Silhouette));
+
+                        } else {
+
+                        let testScore = metrics.Acc_Test_R2 || metrics.Acc_Test;
+
+                        tableHtml += <tr><td><strong>\${model}</strong></td><td>\${metrics.Acc_Train}</td><td>\${testScore}</td><td>\${metrics.Execution_Time_Sec}</td></tr>;
+
+                        scoreMetrics1.push(parseFloat(metrics.Acc_Train));
+
+                        scoreMetrics2.push(parseFloat(testScore));
+
+                        }
+
+                        }
+
+                        tableHtml += '';
+
+                        document.getElementById('resultsTableContainer').innerHTML = tableHtml;
+
+                        document.getElementById('visualizationsContainer').style.display = 'grid';
+
+                        let datasetArray = isClustering ?
+
+                        [{ label: 'Silhouette Index Metric', data: scoreMetrics1, backgroundColor: '#4caf50' }] :
+
+                        [{ label: 'Train Score Split', data: scoreMetrics1, backgroundColor: '#2196f3' }, { label: 'Test Score Split', data: scoreMetrics2, backgroundColor: '#bbdefb' }];
+
+                        new Chart(document.getElementById('performanceChart'), {
+
+                        type: 'bar',
+
+                        data: { labels: modelNames, datasets: datasetArray },
+
+                        options: { responsive: true, scales: { y: { min: 0, max: isClustering ? undefined : 1.05 } } }
+
+                        })
+
+                        new Chart(document.getElementById('speedChart'), {
+
+                        type: 'bar',
+
+                        data: {labels: modelNames,
+
+                        datasets: [{ label: 'Model Runtime Duration Speed (Seconds)', data: speedRuntimes, backgroundColor: '#ff9800' }]
+
+                        },
+
+                        options: { responsive: true }
+
+                        });
+
+                        }
+
+                        } catch (err) { alert('Processing computational pipeline failure.'); }
+
+                        }
 
 
 
