@@ -65,13 +65,13 @@ def data_preprocessing(b: pd.DataFrame) -> ColumnTransformer:
     )
 
 # ➕ Serving the index.html frontend layout natively on the root domain link
-#@app.get("/", response_class=HTMLResponse)
-#async def serve_frontend():
-#    try:
-#        with open("index.html", "r", encoding="utf-8") as f:
-#            return HTMLResponse(content=f.read())
-#    except FileNotFoundError:
-#        return HTMLResponse(content="<h1>Application Online</h1><p>Ensure index.html sits in the main root directory folder.</p>")
+@app.get("/", response_class=HTMLResponse)
+async def serve_frontend():
+    try:
+        with open("index.html", "r", encoding="utf-8") as f:
+            return HTMLResponse(content=f.read())
+    except FileNotFoundError:
+       return HTMLResponse(content="<h1>Application Online</h1><p>Ensure index.html sits in the main root directory folder.</p>")
 
 @app.post("/api/register")
 async def register_user(payload: dict):
